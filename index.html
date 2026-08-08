@@ -180,14 +180,21 @@ function dayLabel(iso) {
   return `${days[d.getDay()]} ${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}`;
 }
 
-async function loadWeeks() {
-  // Get last 12 weeks from production_plan_daily
-  const rows = await sbFetch('production_plan_daily?select=week_start&order=week_start.desc&limit=500');
-  const seen = new Set();
+function loadWeeks() {
+  // Generate last 12 Mondays from today backwards — independent of Supabase data
   const weeks = [];
-  for (const r of rows) {
-    if (!seen.has(r.week_start)) { seen.add(r.week_start); weeks.push(r.week_start); }
-    if (weeks.length >= 12) break;
+  const today = new Date();
+  // Find most recent Monday (current week start)
+  const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon...
+  const daysToMon = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  const thisMonday = new Date(today);
+  thisMonday.setDate(today.getDate() - daysToMon);
+  thisMonday.setHours(0,0,0,0);
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(thisMonday);
+    d.setDate(thisMonday.getDate() - (i * 7));
+    const iso = d.toISOString().slice(0,10);
+    weeks.push(iso);
   }
   return weeks;
 }
@@ -459,13 +466,7 @@ async function onWeekChange() {
 
 async function init() {
   document.getElementById('logo').src = 'data:image/png;base64,' + LOGO_B64;
-  let weeks = [];
-  try {
-    weeks = await loadWeeks();
-  } catch(e) {
-    document.getElementById('main').innerHTML = `<div class="error-msg">Could not connect to data source: ${e.message}</div>`;
-    return;
-  }
+  const weeks = loadWeeks();
 
   const sel = document.getElementById('weekSel');
   sel.innerHTML = '';
