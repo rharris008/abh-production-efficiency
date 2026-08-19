@@ -375,11 +375,32 @@ function calcKpis(rows, planRows) {
   let totalAct = 0;
 
   for (const r of rows) {
-    if (r._type === 'skuchange_a') continue;
+    if (r._type === 'skuchange_a') {
+      // Count sub-row (actual SKU that ran) into the correct KPI group
+      if (r._skuSubActual !== undefined && r._skuSubLine) {
+        const subLg = lineGroup(r._skuSubLine, false);
+        const sk = r._skuSubSku;
+        if (subLg === 'Bottle / New Line') {
+          if (!nlSkus[sk]) nlSkus[sk] = {planPal:0, actPal:0, bmPal:0};
+          nlSkus[sk].actPal += r._skuSubActual;
+          totalAct += r._skuSubActual;
+          if (r._skuSubBm !== null) nlSkus[sk].bmPal += r._skuSubBm;
+          if (r._skuSubPlan != null) nlSkus[sk].planPal += r._skuSubPlan;
+        } else {
+          const g = groups[subLg];
+          if (g) {
+            g.actPal += r._skuSubActual; totalAct += r._skuSubActual;
+            if (r._skuSubBm !== null) g.bmPal += r._skuSubBm;
+            if (r._skuSubPlan != null) g.planPal += r._skuSubPlan;
+          }
+        }
+      }
+      continue;
+    }
     const lg = lineGroup(r.line || '', false);
     if (lg === 'Bottle / New Line') {
       const sk = r.sku;
-      if (!nlSkus[sk]) nlSkus[sk] = {planPal:0, actPal:0, bmPal:0, bm: NL_BM[sk] || null};
+      if (!nlSkus[sk]) nlSkus[sk] = {planPal:0, actPal:0, bmPal:0};
       if (r.actual !== null) { nlSkus[sk].actPal += r.actual; totalAct += r.actual; }
       if (r.plan !== null) nlSkus[sk].planPal += r.plan;
       if (r.actual !== null && r.bm !== null) nlSkus[sk].bmPal += r.bm;
@@ -390,7 +411,6 @@ function calcKpis(rows, planRows) {
       if (r.plan !== null) g.planPal += r.plan;
       if (r.actual !== null && r.bm !== null) g.bmPal += r.bm;
     }
-    if (r._skuSubActual !== undefined) totalAct += r._skuSubActual;
   }
 
   function kpiPct(g) {
