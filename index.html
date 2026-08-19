@@ -180,11 +180,18 @@ function dayLabel(iso) {
   return `${days[d.getDay()]} ${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}`;
 }
 
+function toLocalISO(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 function loadWeeks() {
   // Generate last 12 Mondays from today backwards — independent of Supabase data
+  // Use local date parts (not toISOString) to avoid UTC offset shifting the day back in AEST
   const weeks = [];
   const today = new Date();
-  // Find most recent Monday (current week start)
   const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon...
   const daysToMon = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
   const thisMonday = new Date(today);
@@ -193,8 +200,7 @@ function loadWeeks() {
   for (let i = 0; i < 12; i++) {
     const d = new Date(thisMonday);
     d.setDate(thisMonday.getDate() - (i * 7));
-    const iso = d.toISOString().slice(0,10);
-    weeks.push(iso);
+    weeks.push(toLocalISO(d));
   }
   return weeks;
 }
