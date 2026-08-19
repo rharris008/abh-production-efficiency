@@ -365,23 +365,29 @@ function renderTable(dateRows) {
 }
 
 function calcKpis(rows, planRows) {
-  // Group by line group
-  const groups = {'HMPS':{planPal:0,actPal:0,bmPal:0},'Line A&B':{planPal:0,actPal:0,bmPal:0},'Bottle / New Line':{planPal:0,actPal:0,bmPal:0}};
+  const groups = {'HMPS':{planPal:0,actPal:0,bmPal:0},'Line A&B':{planPal:0,actPal:0,bmPal:0}};
+  // New Line split by SKU — each has its own benchmark
+  const NL_BM = {'600ml 12pk':34,'600ml 6pk':32,'2L Bottle':52};
+  const nlSkus = {};
   let totalAct = 0;
 
-  // For KPI: iterate through all plan rows to get expected (plan × shifts with benchmarks)
   for (const r of rows) {
-    if (r._type === 'skuchange_a') continue; // skip the placeholder row
+    if (r._type === 'skuchange_a') continue;
     const lg = lineGroup(r.line || '', false);
-    const g = groups[lg];
-    if (!g) continue;
-    if (r.actual !== null) { g.actPal += r.actual; totalAct += r.actual; }
-    if (r.plan !== null) g.planPal += r.plan;
-    if (r.actual !== null && r.bm !== null) g.bmPal += r.bm;
-    // For SKU sub rows
-    if (r._type === 'skuchange_a' && r._skuSubActual !== undefined) {
-      totalAct += r._skuSubActual;
+    if (lg === 'Bottle / New Line') {
+      const sk = r.sku;
+      if (!nlSkus[sk]) nlSkus[sk] = {planPal:0, actPal:0, bmPal:0, bm: NL_BM[sk] || null};
+      if (r.actual !== null) { nlSkus[sk].actPal += r.actual; totalAct += r.actual; }
+      if (r.plan !== null) nlSkus[sk].planPal += r.plan;
+      if (r.actual !== null && r.bm !== null) nlSkus[sk].bmPal += r.bm;
+    } else {
+      const g = groups[lg];
+      if (!g) continue;
+      if (r.actual !== null) { g.actPal += r.actual; totalAct += r.actual; }
+      if (r.plan !== null) g.planPal += r.plan;
+      if (r.actual !== null && r.bm !== null) g.bmPal += r.bm;
     }
+    if (r._skuSubActual !== undefined) totalAct += r._skuSubActual;
   }
 
   function kpiPct(g) {
@@ -398,14 +404,22 @@ function calcKpis(rows, planRows) {
     return `<div class="kpi-tile ${cls}"><div class="kpi-label">${label}</div><div class="kpi-val">${typeof value === 'number' ? value.toFixed(suffix==='%'?0:0) : value}${suffix}</div><div class="kpi-sub">${sub}</div></div>`;
   }
 
-  const hmsPct = kpiPct(groups['HMPS']);
-  const labPct = kpiPct(groups['Line A&B']);
-  const nlPct = kpiPct(groups['Bottle / New Line']);
+  const SKU_ORDER = ['600ml 12pk','600ml 6pk','2L Bottle'];
+  let nlTiles = SKU_ORDER
+    .filter(sk => nlSkus[sk])
+    .map(sk => {
+      const g = nlSkus[sk];
+      const bm = NL_BM[sk];
+      return kpiTile(`New Line — ${sk}`, `${bm} pal/shift target`, kpiPct(g), '%');
+    }).join('');
+  if (!nlTiles) {
+    nlTiles = kpiTile('New Line', 'no actuals this week', null, '%');
+  }
 
   return `
-    ${kpiTile('HMPS Benchmark', '10L Cask (67 pal/shift)', hmsPct, '%')}
-    ${kpiTile('Line A&amp;B Benchmark', '10L Cask (80 pal/shift)', labPct, '%')}
-    ${kpiTile('EP New Line Benchmark', '600ml 12pk (34 pal/shift)', nlPct, '%')}
+    ${kpiTile('HMPS', '10L Cask — 67 pal/shift target', kpiPct(groups['HMPS']), '%')}
+    ${kpiTile('Line A&amp;B', '10L: 60 | 5L: 50 pal/shift target', kpiPct(groups['Line A&B']), '%')}
+    ${nlTiles}
     <div class="kpi-tile"><div class="kpi-label">Total Pallets (Actual)</div><div class="kpi-val">${totalAct.toFixed(0)}</div><div class="kpi-sub">all lines, all SKUs</div></div>
   `;
 }
