@@ -138,8 +138,9 @@ const BENCHMARK = {
   'Line A&B':{'10L Cask':60,'5L Cask':50},'Line A':{'10L Cask':40,'5L Cask':35},
   'Line B':{'10L Cask':40,'5L Cask':27},
   'EP new line':{'600ml 12pk':34,'600ml 6pk':32,'2L Bottle':52},
-  'EP New Line':{'600ml 12pk':34,'600ml 6pk':32,'2L Bottle':52},
 };
+// Normalise NS line names for display — NS returns lowercase "EP new line"
+const DISPLAY_LINE = {'EP new line':'EP New Line'};
 const BM_FALLBACK = {'10L Cask':67,'5L Cask':35,'2L Bottle':52,'600ml 12pk':34,'600ml 6pk':32};
 
 function getBenchmark(line, sku) {
@@ -337,13 +338,13 @@ function renderTable(dateRows) {
     if (r._type === 'skuchange_a') {
       // Row A — planned SKU that didn't run
       html += `<tr>
-        <td>${r.line}</td><td>${r.sku}</td><td>${r.shift}</td>
+        <td>${DISPLAY_LINE[r.line]||r.line}</td><td>${r.sku}</td><td>${r.shift}</td>
         <td>${r.plan}</td><td>0</td><td>n/a</td><td>n/a</td><td>n/a</td>
         <td>${statusBadge('SKU change')}</td><td style="color:#888">${r.notes}</td></tr>`;
       // Row B — actual SKU that ran
       const bPct = fmtPct(r._skuSubActual, r._skuSubBm);
       html += `<tr style="background:#f0f4ff">
-        <td>${r._skuSubLine}</td><td>${r._skuSubSku}</td><td>${r.shift}</td>
+        <td>${DISPLAY_LINE[r._skuSubLine]||r._skuSubLine}</td><td>${r._skuSubSku}</td><td>${r.shift}</td>
         <td>—</td><td>${r._skuSubActual.toFixed(0)}</td><td>n/a</td>
         <td>${r._skuSubBm !== null ? r._skuSubBm : 'n/a'}</td><td>${bPct}</td>
         <td>${statusBadge('SKU sub')}</td><td style="color:#888">${r._skuSubNotes}</td></tr>`;
@@ -354,7 +355,7 @@ function renderTable(dateRows) {
       const bmDisp = r.bm !== null ? r.bm : (r.status === 'No build' ? 'n/a' : '—');
       const bmPct = (r.actual !== null && r.bm !== null) ? fmtPct(r.actual, r.bm) : 'n/a';
       html += `<tr>
-        <td>${r.line}</td><td>${r.sku}</td><td>${r.shift}</td>
+        <td>${DISPLAY_LINE[r.line]||r.line}</td><td>${r.sku}</td><td>${r.shift}</td>
         <td>${planDisp}</td><td>${actDisp}</td><td>${varDisp}</td>
         <td>${bmDisp}</td><td>${bmPct}</td>
         <td>${statusBadge(r.status)}</td><td style="color:#888;max-width:200px;white-space:normal">${r.notes}</td></tr>`;
@@ -410,15 +411,15 @@ function calcKpis(rows, planRows) {
     .map(sk => {
       const g = nlSkus[sk];
       const bm = NL_BM[sk];
-      return kpiTile(`New Line — ${sk}`, `${bm} pal/shift target`, kpiPct(g), '%');
+      return kpiTile(`New Line — ${sk}`, `benchmark max: ${bm} pal/shift`, kpiPct(g), '%');
     }).join('');
   if (!nlTiles) {
     nlTiles = kpiTile('New Line', 'no actuals this week', null, '%');
   }
 
   return `
-    ${kpiTile('HMPS', '10L Cask — 67 pal/shift target', kpiPct(groups['HMPS']), '%')}
-    ${kpiTile('Line A&amp;B', '10L: 60 | 5L: 50 pal/shift target', kpiPct(groups['Line A&B']), '%')}
+    ${kpiTile('HMPS', 'benchmark max: 67 pal/shift', kpiPct(groups['HMPS']), '%')}
+    ${kpiTile('Line A&amp;B', 'benchmark max: 10L=60 | 5L=50 pal/shift', kpiPct(groups['Line A&B']), '%')}
     ${nlTiles}
     <div class="kpi-tile"><div class="kpi-label">Total Pallets (Actual)</div><div class="kpi-val">${totalAct.toFixed(0)}</div><div class="kpi-sub">all lines, all SKUs</div></div>
   `;
