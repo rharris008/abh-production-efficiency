@@ -298,11 +298,11 @@ function buildRows(planRows, actualRows) {
       matchedAct.add(actKey);
       const plan = parseFloat(p.planned_pallets) || 0;
       const bm = getBenchmark(foundAct.line, foundAct.sku);
-      // Row A: planned SKU (no build for it)
+      // Row A: planned SKU (no build for it) — plan moves to sub-row so Row A shows no plan
       rows.push({date: p.plan_date, line: nsLine, sku: p.sku, shift,
-        plan, actual: 0, diff: null, bm: null, status: 'SKU change',
+        plan: null, actual: 0, diff: null, bm: null, status: 'SKU change',
         notes: `Line ran ${foundAct.sku} instead`, _type: 'skuchange_a', _skuSubLine: foundAct.line,
-        _skuSubSku: foundAct.sku, _skuSubActual: foundAct.pallets, _skuSubBm: bm, _skuSubNotes: foundAct.notes});
+        _skuSubSku: foundAct.sku, _skuSubActual: foundAct.pallets, _skuSubPlan: plan, _skuSubBm: bm, _skuSubNotes: foundAct.notes});
     } else {
       // No build
       const plan = parseFloat(p.planned_pallets) || 0;
@@ -336,16 +336,18 @@ function renderTable(dateRows) {
   let html = '<table><thead><tr><th>Line (NS)</th><th>SKU</th><th>Shift</th><th>Plan (pal)</th><th>Actual (pal)</th><th>Var</th><th>Benchmark</th><th>Benchmark %</th><th>Status</th><th>Notes</th></tr></thead><tbody>';
   for (const r of dateRows) {
     if (r._type === 'skuchange_a') {
-      // Row A — planned SKU that didn't run
+      // Row A — planned SKU that didn't run (plan shown on sub-row)
       html += `<tr>
         <td>${DISPLAY_LINE[r.line]||r.line}</td><td>${r.sku}</td><td>${r.shift}</td>
-        <td>${r.plan}</td><td>0</td><td>n/a</td><td>n/a</td><td>n/a</td>
+        <td>—</td><td>0</td><td>n/a</td><td>n/a</td><td>n/a</td>
         <td>${statusBadge('SKU change')}</td><td style="color:#888">${r.notes}</td></tr>`;
-      // Row B — actual SKU that ran
+      // Row B — actual SKU that ran (carries the plan for variance visibility)
       const bPct = fmtPct(r._skuSubActual, r._skuSubBm);
+      const subPlan = r._skuSubPlan != null ? r._skuSubPlan : null;
+      const subVar = subPlan != null ? fmtVar(r._skuSubActual - subPlan) : 'n/a';
       html += `<tr style="background:#f0f4ff">
         <td>${DISPLAY_LINE[r._skuSubLine]||r._skuSubLine}</td><td>${r._skuSubSku}</td><td>${r.shift}</td>
-        <td>—</td><td>${r._skuSubActual.toFixed(0)}</td><td>n/a</td>
+        <td>${subPlan != null ? subPlan : '—'}</td><td>${r._skuSubActual.toFixed(0)}</td><td>${subVar}</td>
         <td>${r._skuSubBm !== null ? r._skuSubBm : 'n/a'}</td><td>${bPct}</td>
         <td>${statusBadge('SKU sub')}</td><td style="color:#888">${r._skuSubNotes}</td></tr>`;
     } else {
